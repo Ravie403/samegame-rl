@@ -1,0 +1,3 @@
+chainerrl==0.8.0
+atari_py>=0.1.1
+opencv-python
