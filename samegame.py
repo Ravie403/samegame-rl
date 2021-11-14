@@ -4,31 +4,12 @@ samegame reinforce learning
 thanks to https://qiita.com/uezo/items/87b25c93199d72a56a9a
 """
 import chainer
-import chainer.functions as F
-import chainer.links as L
 import chainerrl
 import numpy as np
 from board import Board
 from RandomActor import RandomActor
-
-
-# Q関数
-class QFunction(chainer.Chain):
-    def __init__(self, obs_size, n_actions, n_hidden_channels):
-        super().__init__(
-            l0=L.Linear(obs_size, n_hidden_channels),
-            l1=L.Linear(n_hidden_channels, n_hidden_channels),
-            l2=L.Linear(n_hidden_channels, n_hidden_channels),
-            l3=L.Linear(n_hidden_channels, n_actions))
-
-    def __call__(self, x, test=False):
-        h = F.leaky_relu(self.l0(x))
-        h = F.leaky_relu(self.l1(h))
-        h = F.leaky_relu(self.l2(h))
-        act = chainerrl.action_value.DiscreteActionValue(self.l3(h))
-        # print(x.shape, h.shape, act)
-        return act
-
+import time
+from Q import QFunction
 
 b = Board()
 ra = RandomActor(b)
@@ -36,8 +17,10 @@ ra = RandomActor(b)
 # 環境と行動の次元数
 obs_size = 126
 n_actions = 126
-
+start = time.perf_counter()
 # Q-functionとオプティマイザーのセットアップ
+print('setup q-func, optimizer, explorer, and agent...')
+s1 = time.perf_counter()
 q_func = QFunction(obs_size, n_actions, obs_size**2)
 optimizer = chainer.optimizers.Adam(eps=1e-2)
 optimizer.setup(q_func)
@@ -54,29 +37,43 @@ agent = chainerrl.agents.DoubleDQN(
     q_func, optimizer, replay_buffer, gamma, explorer,
     replay_start_size=500, update_interval=1,
     target_update_interval=100)
+e1 = time.perf_counter()
+print(f'completed in {round(e1-s1, 3)} sec.')
+
+
+def parse_statistics(stats):
+    avg, los, upd = stats
+    return f'Q_avg: {round(avg[1])}, loss_avg: {round(los[1])}, n_upd: {upd[1]}'
+
 
 # 学習ゲーム回数
-n_episodes = 2000
+n_episodes = 500
+agent.load("results/result_20")
 # カウンタの宣言
 score = 0
-last_state = None
-for i in range(1, n_episodes + 1):
-    b.reset()
+print("Start training.")
+for i in range(21, n_episodes + 1):
+    obs = b.reset()
     reward = 0
-    while not b.finished:
-        action = agent.act_and_train(b.getBoard(), reward)
-        if type(action) == np.int32:
-            action = [action // 14, action % 14]
-        else:
-            action = action.astype(np.int32)
-        reward += b.delete(action)
-        last_state = b.getBoard()
-    score = max(score, b.calcResult())
-    agent.stop_episode_and_train(b.getBoard(), score, True)
+    done = False
+    step = 0
+    ra.random_count = 0
+    s2 = time.perf_counter()
+    while not done and step < 60:
+        action = agent.act_and_train(obs, reward // 5)
+        obs, reward, done, _ = b.step(action)
+        step += 1
+    s2 = time.perf_counter() - s2
+    reward = b.calc_result() if done else 0
+    score = max(score, reward)
+    stats = parse_statistics(agent.get_statistics())
+    print(f"episode: {i} in {s2 // 60} min. / rnd: {ra.random_count}/{step} / Max: {score} / statistics: {stats} / epsilon: {round(agent.explorer.epsilon, 2)}")
 
-    if i % 100 == 0:
-        print(f"episode: {i} / rnd: {ra.random_count} / Maxscore: {score} / statistics: {agent.get_statistics()} / epsilon: {agent.explorer.epsilon}")
-    if i % 10000 == 0:
-        agent.save(f"result_{str(i)}")
+    # if i in (100, 150, 200, 500, 1000, 5000, 10000, 15000, 20000, n_episodes):
+    if i % 50 == 0:
+        agent.save(f"results/result_{str(i)}")
 
-print("Training finished.")
+    agent.stop_episode_and_train(obs, reward // 5, True)
+
+fin = time.perf_counter()
+print(f"Training finished in {(fin-start)//3600} hrs.")

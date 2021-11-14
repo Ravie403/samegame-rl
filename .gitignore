@@ -130,3 +130,6 @@ dmypy.json
 
 # results folder
 results/
+
+# ignore jetbrains editor
+.idea/

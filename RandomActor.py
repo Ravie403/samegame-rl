@@ -10,4 +10,6 @@ class RandomActor:
 
     def random_action_func(self):
         self.random_count += 1
-        return choice(self.board.actions)
+        chosen = choice(self.board.get_available_actions().astype(np.int32))
+        y, x = chosen
+        return y*14+x
