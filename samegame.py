@@ -48,18 +48,20 @@ def parse_statistics(stats):
 
 # 学習ゲーム回数
 n_episodes = 500
-agent.load("results/result_20")
 # カウンタの宣言
 score = 0
+
+STEP_THRESHOLD: int = 100
+SAVE_TIMES: int = 50
 print("Start training.")
-for i in range(21, n_episodes + 1):
+for i in range(1, n_episodes + 1):
     obs = b.reset()
     reward = 0
     done = False
     step = 0
     ra.random_count = 0
     s2 = time.perf_counter()
-    while not done and step < 60:
+    while not done and step < STEP_THRESHOLD:
         action = agent.act_and_train(obs, reward // 5)
         obs, reward, done, _ = b.step(action)
         step += 1
@@ -69,8 +71,7 @@ for i in range(21, n_episodes + 1):
     stats = parse_statistics(agent.get_statistics())
     print(f"episode: {i} in {s2 // 60} min. / rnd: {ra.random_count}/{step} / Max: {score} / statistics: {stats} / epsilon: {round(agent.explorer.epsilon, 2)}")
 
-    # if i in (100, 150, 200, 500, 1000, 5000, 10000, 15000, 20000, n_episodes):
-    if i % 50 == 0:
+    if i % SAVE_TIMES == 0:
         agent.save(f"results/result_{str(i)}")
 
     agent.stop_episode_and_train(obs, reward // 5, True)
