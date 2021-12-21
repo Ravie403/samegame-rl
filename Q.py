@@ -1,18 +1,15 @@
-# Q-Function
-import chainer
-import chainer.functions as F
-import chainer.links as L
-import chainerrl
+from torch.nn import Module, Linear, functional
+import pfrl
 
-class QFunction(chainer.Chain):
+
+class QFunction(Module):
     def __init__(self, obs_size, n_actions, n_hidden_channels):
-        super().__init__(
-            l0=L.Linear(obs_size, n_hidden_channels),
-            l1=L.Linear(n_hidden_channels, n_hidden_channels),
-            l2=L.Linear(n_hidden_channels, n_actions))
+        super().__init__()
+        self.l1=Linear(obs_size, n_hidden_channels)
+        self.l2=Linear(n_hidden_channels, n_hidden_channels)
+        self.l3=Linear(n_hidden_channels, n_actions)
 
-    def __call__(self, x, test=False):
-        h = F.leaky_relu(self.l0(x))
-        h = F.leaky_relu(self.l1(h))
-        act = chainerrl.action_value.DiscreteActionValue(self.l2(h))
-        return act
+    def forward(self, x):
+        h = functional.relu(self.l1(x))
+        h = functional.relu(self.l2(h))
+        return pfrl.action_value.DiscreteActionValue(self.l3(h))

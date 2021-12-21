@@ -1,4 +1,4 @@
-from random import choice
+from random import choice, seed
 import numpy as np
 
 
@@ -10,6 +10,7 @@ class RandomActor:
 
     def random_action_func(self):
         self.random_count += 1
+        seed() # 別関数でseed値の固定が行われているので一度シード値を変更してから実行する
         chosen = choice(self.board.get_available_actions().astype(np.int32))
         y, x = chosen
-        return y*14+x
+        return y*14 + x

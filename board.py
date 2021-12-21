@@ -1,11 +1,7 @@
 from collections import deque
 from math import floor
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import numpy as np
 import random
-
-from numpy.core.fromnumeric import repeat
 
 CLEAR_BONUS_INIT = 25
 CLEAR_BONUS_DIFF = 50
@@ -29,10 +25,6 @@ class Board():
         score = self.delete([block // self.width, block % self.width])
         return self.get_board(), score, self.finished, {}
 
-    def action(self, action):
-        self.delete(action.astype(np.int32))
-        return self.finished
-
     def reset(self):
         self.board = self.generate(self.width, self.height, self.block_type)
         self.finished = False
@@ -41,11 +33,12 @@ class Board():
         return self.get_board()
 
     @staticmethod
-    def generate(width, height, block_type) -> np.ndarray:
+    def generate(width: int, height: int , block_type: int) -> np.ndarray:
+        random.seed(3141592) # 非常に心苦しいがランダム生成では厳しいので固定シードにする
         return np.array([[random.randint(1, block_type)
                           for i in range(width)] for j in range(height)])
 
-    def find_same_blocks(self, block) -> list:
+    def find_same_blocks(self, block: list) -> list:
         dr = [[1, 0], [0, 1], [-1, 0], [0, -1]]
         q = deque()
         y, x = block
@@ -73,12 +66,14 @@ class Board():
         return np.int32(self.score + self.calc_clear_bonus_score(n))
 
     @staticmethod
-    def calc_sum_for_arithmetic(n, a, d) -> int:
+    def calc_sum_for_arithmetic(n: int, a:int , d: int) -> int:
         return (n / 2) * (2 * a + (n - 1) * d)
 
-    def calc_clear_bonus_score(self, n) -> int:
-        return self.calc_sum_for_arithmetic(max(floor((1 - n / (self.width * self.height)) * 100) - BONUS_THRESHOLD, 0),
-                                            CLEAR_BONUS_INIT, CLEAR_BONUS_DIFF)
+    def calc_clear_bonus_score(self, n: int) -> int:
+        return self.calc_sum_for_arithmetic(
+            max(floor((1 - n / (self.width * self.height)) * 100) - BONUS_THRESHOLD, 0),
+            CLEAR_BONUS_INIT, CLEAR_BONUS_DIFF
+        )
 
     def get_finished_bonus(self) -> int:
         return self.calc_clear_bonus_score(np.count_nonzero(self.board != 0))
@@ -91,7 +86,7 @@ class Board():
                     result.append([y, x])
         return np.array(result, dtype=np.float32)
 
-    def delete(self, block) -> int:
+    def delete(self, block: list) -> int:
         blocks = self.find_same_blocks(block)
         if len(blocks) < 2:
             return 0
@@ -114,19 +109,3 @@ class Board():
         v = self.board[:, np.any(self.board != 0, axis=0)]
         z = np.zeros([self.height, self.width - v.shape[1]], dtype=np.int32)
         self.board = np.hstack([z, v])
-
-
-if __name__ == '__main__':
-    fig, ax = plt.subplots()
-    ax.invert_yaxis()
-    b = Board()
-    an = ax.pcolor(b.board.copy(), cmap='Accent', vmin=0, vmax=7)
-    anis = []
-    anis.append([an])
-    while not b.finished:
-        s = b.delete(b.get_available_actions().astype(np.int32)[0])
-        anis.append([ax.pcolor(b.board.copy(), cmap='Accent', vmin=0, vmax=7), ax.text(
-            0.5, 1.01, f'Score:{b.score} +{s}', ha='center', va='bottom', transform=ax.transAxes, fontsize='large')])
-    ani = animation.ArtistAnimation(fig, anis, interval=100, repeat_delay=1000)
-    # ani.save('animation.gif')
-    plt.show()
